@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-config-server-app
+  labels:
+    app: cloud-config-server-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-config-server-app
+  template:
+    metadata:
+      labels:
+        app: cloud-config-server-app
+    spec:
+      containers:
+        - name: cloud-config-server-app
+          image: nk95/cloud-config-server:0.0.1-SNAPSHOT
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9296
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-config-server-svc
+spec:
+  ports:
+    - targetPort: 9296
+      port: 80
+  selector:
+    app: cloud-config-server-app
+    
+    
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eureka-cm
+data:
+  eureka_service_address: http://eureka-0.eureka:8762/eureka
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: eureka
+  labels:
+    app: eureka
+spec:
+  clusterIP: None
+  ports:
+    - port: 8762
+      name: eureka
+  selector:
+    app: eureka
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: eureka
+spec:
+  serviceName: "eureka"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eureka
+  template:
+    metadata:
+      labels:
+        app: eureka
+    spec:
+      containers:
+        - name: eureka
+          image: nk95/service-registry:0.0.1-SNAPSHOT
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8762
+          env:
+            - name: EUREKA_SERVER_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: eureka-cm
+                  key: eureka_service_address
+                 
+                 
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: eureka-lb
+  labels:
+    app: eureka
+spec:
+  selector:
+    app: eureka
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8762
+                         
+                         
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service-app
+  labels:
+    app: user-service-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app : user-service-app
+  template:
+    metadata:
+      labels:
+        app: user-service-app
+    spec:
+      containers:
+      - name: user-service-app
+        image: nk95/user-service:0.0.1-SNAPSHOT
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 9002
+          
+          
+  ---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name:  user-service-svc
+spec:
+  selector:
+    app:  user-service-app
+  ports:
+  - port:  80
+    targetPort:  9002
+
+          
